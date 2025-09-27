@@ -1,0 +1,4 @@
+- Private cluster with restricted API surface.
+- Azure AD/RBAC enforced; local accounts not used.
+- Network Policy enabled (Azure/Calico).
+- Azure Policy add-on on by default for Gatekeeper-style controls.
