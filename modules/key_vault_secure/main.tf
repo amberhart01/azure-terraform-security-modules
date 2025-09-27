@@ -1,11 +1,13 @@
 terraform {
+  required_version = ">= 1.6"
   required_providers {
     azurerm = {
       source  = "hashicorp/azurerm"
-      version = ">= 3.112.0"
+      version = ">= 4.0.0, < 5.0.0"    # range
     }
   }
 }
+
 
 resource "azurerm_key_vault" "this" {
   name                        = var.name
