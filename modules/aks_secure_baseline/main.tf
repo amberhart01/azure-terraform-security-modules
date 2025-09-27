@@ -56,7 +56,7 @@ resource "azurerm_kubernetes_cluster" "this" {
   # Strengthen posture
   local_account_disabled = true
 
-  sku_tier = "Paid" # required for some add-ons/policy scenarios
+  sku_tier = "Premium" # required for some add-ons/policy scenarios
 
   tags = var.tags
 }
