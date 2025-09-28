@@ -7,7 +7,6 @@ on:
 
 env:
   TF_IN_AUTOMATION: "true"
-  # If you want the plan step to run, set these in repo/environment secrets
   ARM_USE_OIDC: "true"
   ARM_SKIP_PROVIDER_REGISTRATION: "true"
 
@@ -65,30 +64,34 @@ jobs:
           working_directory: .
 
   plan_example:
-    name: Terraform plan (example) — conditional
+    name: Terraform plan (example) — conditional by secrets
     runs-on: ubuntu-latest
     needs: [fmt_validate_tflint, security_scans]
 
-    # Map secrets -> env, then use only env in the if: expression
+    # Map secrets to env; step-level if’s can read env.*
     env:
       ARM_CLIENT_ID:       ${{ secrets.AZURE_CLIENT_ID || '' }}
       ARM_TENANT_ID:       ${{ secrets.AZURE_TENANT_ID || '' }}
       ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID || '' }}
 
-    # Run only when all three env vars are present
-    if: ${{ env.ARM_CLIENT_ID != '' && env.ARM_TENANT_ID != '' && env.ARM_SUBSCRIPTION_ID != '' }}
-
     steps:
       - uses: actions/checkout@v4
 
+      - name: Skipping plan (missing Azure creds)
+        if: ${{ env.ARM_CLIENT_ID == '' || env.ARM_TENANT_ID == '' || env.ARM_SUBSCRIPTION_ID == '' }}
+        run: |
+          echo "Skipping terraform plan because one or more Azure secrets are missing."
+          echo "Required: AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID"
+
       - name: Setup Terraform
+        if: ${{ env.ARM_CLIENT_ID != '' && env.ARM_TENANT_ID != '' && env.ARM_SUBSCRIPTION_ID != '' }}
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.9.5
 
-      # Optional: if you're using OIDC login to Azure, uncomment this and ensure
-      # your workload identity is configured (federated creds on the SP).
+      # Optional OIDC login (uncomment once your federated credential is configured)
       # - name: Azure login (OIDC)
+      #   if: ${{ env.ARM_CLIENT_ID != '' && env.ARM_TENANT_ID != '' && env.ARM_SUBSCRIPTION_ID != '' }}
       #   uses: azure/login@v2
       #   with:
       #     client-id:       ${{ env.ARM_CLIENT_ID }}
@@ -96,17 +99,19 @@ jobs:
       #     subscription-id: ${{ env.ARM_SUBSCRIPTION_ID }}
 
       - name: Init/Plan example (no state backend)
+        if: ${{ env.ARM_CLIENT_ID != '' && env.ARM_TENANT_ID != '' && env.ARM_SUBSCRIPTION_ID != '' }}
         working-directory: examples/rg_kv_sa_demo
         run: |
           terraform init -backend=false -input=false
+          terraform validate
           terraform plan -input=false -lock=false -out=tfplan
 
       - name: Upload plan artifact
+        if: ${{ env.ARM_CLIENT_ID != '' && env.ARM_TENANT_ID != '' && env.ARM_SUBSCRIPTION_ID != '' }}
         uses: actions/upload-artifact@v4
         with:
           name: tfplan
           path: examples/rg_kv_sa_demo/tfplan
-
 
   terratest_placeholder:
     name: Terratest (placeholder)
@@ -120,4 +125,5 @@ jobs:
           echo "Suggested structure:"
           echo "./test/aks_secure_baseline_test.go"
           echo "./test/storage_account_secure_test.go"
-          echo "We will run: go test -v ./test -timeout 45m"
+          echo "./test/key_vault_secure_test.go"
+          echo "Future command: go test -v ./test -timeout 45m"
