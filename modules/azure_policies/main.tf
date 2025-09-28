@@ -1,4 +1,5 @@
 terraform {
+  required_version = ">= 1.6"
   required_providers {
     azurerm = {
       source  = "hashicorp/azurerm"
@@ -6,6 +7,7 @@ terraform {
     }
   }
 }
+
 
 # Use exactly one of subscription_id or resource_group_id.
 # The module will create the right assignment type based on which is provided.
