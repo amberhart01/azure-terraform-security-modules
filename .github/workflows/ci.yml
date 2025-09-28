@@ -68,14 +68,16 @@ jobs:
     name: Terraform plan (example) — conditional
     runs-on: ubuntu-latest
     needs: [fmt_validate_tflint, security_scans]
-    # Only run plan if creds are present (OIDC to Azure or classic ARM_* secrets)
-    if: >
-      (env.ARM_CLIENT_ID != '' && env.ARM_TENANT_ID != '' && env.ARM_SUBSCRIPTION_ID != '') ||
-      (secrets.AZURE_CLIENT_ID != '' && secrets.AZURE_TENANT_ID != '' && secrets.AZURE_SUBSCRIPTION_ID != '')
+
+    # Map secrets -> env, then use only env in the if: expression
     env:
-      ARM_CLIENT_ID:       ${{ secrets.AZURE_CLIENT_ID }}
-      ARM_TENANT_ID:       ${{ secrets.AZURE_TENANT_ID }}
-      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      ARM_CLIENT_ID:       ${{ secrets.AZURE_CLIENT_ID || '' }}
+      ARM_TENANT_ID:       ${{ secrets.AZURE_TENANT_ID || '' }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID || '' }}
+
+    # Run only when all three env vars are present
+    if: ${{ env.ARM_CLIENT_ID != '' && env.ARM_TENANT_ID != '' && env.ARM_SUBSCRIPTION_ID != '' }}
+
     steps:
       - uses: actions/checkout@v4
 
@@ -84,14 +86,14 @@ jobs:
         with:
           terraform_version: 1.9.5
 
-      # If using GitHub OIDC to Azure, add this step (and configure a Federated Credential on your SP):
-      - name: Azure login (OIDC) — optional
-        if: ${{ env.ARM_CLIENT_ID == '' && secrets.AZURE_CLIENT_ID == '' }}
-        uses: azure/login@v2
-        with:
-          client-id:       ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id:       ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      # Optional: if you're using OIDC login to Azure, uncomment this and ensure
+      # your workload identity is configured (federated creds on the SP).
+      # - name: Azure login (OIDC)
+      #   uses: azure/login@v2
+      #   with:
+      #     client-id:       ${{ env.ARM_CLIENT_ID }}
+      #     tenant-id:       ${{ env.ARM_TENANT_ID }}
+      #     subscription-id: ${{ env.ARM_SUBSCRIPTION_ID }}
 
       - name: Init/Plan example (no state backend)
         working-directory: examples/rg_kv_sa_demo
@@ -104,6 +106,7 @@ jobs:
         with:
           name: tfplan
           path: examples/rg_kv_sa_demo/tfplan
+
 
   terratest_placeholder:
     name: Terratest (placeholder)
