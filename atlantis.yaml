@@ -1,0 +1,48 @@
+version: 3
+
+automerge: false
+
+# Gate applies behind approvals + mergeability
+apply_requirements: [approved, mergeable]
+
+# Default settings for all projects
+parallel_plan: true
+parallel_apply: false
+
+workflows:
+  secure_tf:
+    plan:
+      steps:
+        - run: terraform fmt -check -recursive
+        - run: tflint --init
+        - run: tflint --recursive --minimum-severity=ERROR
+        - run: checkov -q --framework terraform --directory .
+        - run: tfsec .
+        - init
+        - plan -input=false -lock=false
+    apply:
+      steps:
+        - apply -input=false
+
+# Define projects Atlantis will manage
+projects:
+  # Example environment (rooted in examples/rg_kv_sa_demo)
+  - name: rg-kv-sa-demo
+    dir: examples/rg_kv_sa_demo
+    workflow: secure_tf
+    autoplan:
+      when_modified: ["**/*.tf", "../../modules/**.tf"]
+      enabled: true
+    terraform_version: v1.9.5
+    # If you use different backends per project, add environment_vars here.
+
+  # Modules as “read-only plan” (no apply by default)
+  - name: modules
+    dir: modules
+    workflow: secure_tf
+    autoplan:
+      when_modified: ["**/*.tf"]
+      enabled: true
+    terraform_version: v1.9.5
+    # Optionally prevent apply entirely on modules (docs-only)
+    # apply_requirements: [approved, mergeable, "never-apply"]
